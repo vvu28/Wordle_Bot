@@ -57,21 +57,23 @@ public class EntropyBot{
     }
 
     public static List<String> possibleMatches(String result, String guess, List<String> currentMatches){
-        for(int i = currentMatches.size()-1;i>=0;i--){ // repeats for every word on answers list
+        List<String> newMatches = new ArrayList<>();
+        for(int i = 0; i<currentMatches.size(); i++){ 
             String candidate = currentMatches.get(i);
             String eval = guessEval(candidate, guess);
-            if(!eval.equals(result)){
-                currentMatches.remove(i);
+            if(eval.equals(result)){
+                newMatches.add(candidate);
             }
         }
-        return currentMatches;
+        return newMatches;
     }
 
-    public static double calculateAvgBits(String guess, List<String> possibleMatches){
-        double total = possibleMatches.size()+0.0;
+    public static double calculateAvgBits(String guess, List<String> wordsRemaining){
+        double total = wordsRemaining.size()+0.0;
+        // List<String> officialAnswers = loadWords("OfficialAnswers.txt");
         //count occurences of result pattern
         Map<String, Integer> patternCounts = new HashMap<>();
-        for (String solution: possibleMatches){ //we want to check outcome for every solution
+        for (String solution: wordsRemaining){ 
             String pattern = guessEval(solution, guess);
             patternCounts.put(pattern, patternCounts.getOrDefault(pattern, 0)+1);
         }
@@ -85,20 +87,61 @@ public class EntropyBot{
         }
         return entropy;
     }
-    //this assumes playing on hard mode
-    public static String findOptimal(Map<String, String> guessResult, List<String> possibleMatches){
+
+    public static String findOptimal(List<String> possibleMatches){
         Map<String, Double> matchBits = new HashMap<>();
+        List<String> officialAnswers = loadWords("OfficialAnswers.txt");
+        // System.out.println("Evaluating entropy for " + possibleMatches.size() + " candidates");
+
         //run through every word of the possible matches remaining
-        for(String match: possibleMatches){
+        for(String match: officialAnswers){
             double bits = calculateAvgBits(match, possibleMatches);
             matchBits.put(match, bits);
         }
         Map.Entry<String, Double> maxEntry = Collections.max(matchBits.entrySet(), Map.Entry.comparingByValue()); //finds highest bits
         String highest = maxEntry.getKey();
+        if (possibleMatches.size() == 1) return possibleMatches.get(0);
         return highest;
     }
 
+    public static void avgGuessTotal(){
+        List<String> matches = loadWords("OfficialAnswers.txt");
+        // Map<String, String> guessResult = new HashMap<>(); //stores guesses + results
+        int guessTotal = 0;
+        int lossTotal = 0;
+        for(String answer: matches){
+            List<String> candidates = new ArrayList<>(matches);
+            int sum = 0;
+            for (int i = 0; i<6; i++){
+                String guess = findOptimal(candidates);
+                String eval = guessEval(answer, guess);
+                // guessResult.put(guess, eval);
+                sum++;
+                candidates = possibleMatches(eval, guess, candidates);
+                if (candidates.size()==1){
+                    guessTotal+=sum+1;
+                    break;
+                }
+                if(i==5&&candidates.size()!=1){
+                    lossTotal++;
+                    guessTotal+=7;
+                }
+            }
+        }
+        double average = (double) guessTotal/matches.size();
+        System.out.println("Avg:" + average + ", losses:" + lossTotal);
+    }
+
     public static void main(String[] args){
+        // System.out.println("test");
+        // try {
+        //     avgGuessTotal();
+        // } 
+        // catch (Exception e) {
+        //     e.printStackTrace();
+        // }       
+        // System.out.println("test");
+
         Scanner in = new Scanner(System.in);
         List<String> matches = loadWords("OfficialAnswers.txt");//load official answer list
         //pick a random word
@@ -116,11 +159,11 @@ public class EntropyBot{
             System.out.println(result+"\n");
             matches = possibleMatches(result, guess, matches); //determine matches left
             guessResult.put(guess, result); //add guess + result to hashmap
-            System.out.println("Recommendation: " + findOptimal(guessResult, matches));
             if(result.equals("22222")){
                 System.out.println("Congratulations! You win");
                 break;
             }
+            System.out.println("Recommendation: " + findOptimal(matches));
         }
         else{
             System.out.println("invalid answer\n");
